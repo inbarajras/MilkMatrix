@@ -34,7 +34,7 @@
       "compileSdkVersion": 34,
       "targetSdkVersion": 33,
       "buildToolsVersion": "34.0.0",
-      "privacyPolicyUrl": "https://github.com/inbarajras/MilkMatrix/blob/master/PRIVACY_POLICY.md"
+      "privacyPolicyUrl": "https://inbarajras.github.io/MilkMatrix/privacy_policy.html"
     },
     "web": {
       "favicon": "./assets/favicon.png"
