@@ -1,29 +1,55 @@
 {
   "expo": {
     "name": "MilkMatrix",
-    "slug": "MilkMatrix",
+    "slug": "milk-matrix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#E3F2FD"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app uses the camera to scan QR codes for cow identification."
+      },
+      "bundleIdentifier": "com.milkmatrix.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#E3F2FD"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "package": "com.milkmatrix.app",
+      "versionCode": 11,
+      "compileSdkVersion": 34,
+      "targetSdkVersion": 33,
+      "buildToolsVersion": "34.0.0"
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow this app to access your camera to scan QR codes for cow identification."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "424f93d3-dc8f-49f0-b7fe-f26a14002e23"
+      }
     }
   }
 }
