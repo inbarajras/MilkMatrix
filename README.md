@@ -198,6 +198,10 @@ Make sure to set the following environment variables for production:
 - `EXPO_PUBLIC_SUPABASE_URL`
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 
+## Privacy Policy
+
+The app's privacy policy is available in the [PRIVACY_POLICY.md](PRIVACY_POLICY.md) file. This document outlines how user data is collected, used, and protected when using the MilkMatrix app. The privacy policy is required for Google Play Store submission.
+
 ## Troubleshooting
 
 ### Common Issues
