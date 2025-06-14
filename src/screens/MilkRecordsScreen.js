@@ -14,12 +14,14 @@ import {
   Searchbar,
   ActivityIndicator,
   Snackbar,
+  Button,
 } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { milkService } from '../services/milkService';
 import { handleApiError } from '../utils/errorHandler';
 import BackgroundImage from '../components/BackgroundImage';
 
-const MilkRecordsScreen = ({ navigation }) => {
+const MilkRecordsScreen = ({ navigation, route }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,13 +29,33 @@ const MilkRecordsScreen = ({ navigation }) => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  // Load milk records when screen first mounts
   useEffect(() => {
     loadMilkRecords();
   }, []);
+  
+  // Reload data whenever the screen comes into focus (returning from edit screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Check if we should show a refresh message from route params
+      const showUpdateMessage = route.params?.refresh === true;
+      
+      // Clear the route params to avoid showing messages multiple times
+      if (showUpdateMessage) {
+        navigation.setParams({ refresh: undefined });
+      }
+      
+      // Don't show full-screen loading when returning from edit screen
+      loadMilkRecords(false, showUpdateMessage);
+      return () => {}; // cleanup function
+    }, [route.params?.refresh])
+  );
 
-  const loadMilkRecords = async () => {
+  const loadMilkRecords = async (showFullScreenLoading = true, showUpdateMessage = false) => {
     try {
-      setLoading(true);
+      if (showFullScreenLoading) {
+        setLoading(true);
+      }
       
       const showError = (message) => {
         setSnackbarMessage(message);
@@ -47,6 +69,11 @@ const MilkRecordsScreen = ({ navigation }) => {
         handleApiError(error, showError);
       } else {
         setRecords(data || []);
+        // Only show "Records updated" when explicitly requested (like after an edit)
+        if (showUpdateMessage && data && data.length > 0) {
+          setSnackbarMessage('Records updated');
+          setSnackbarVisible(true);
+        }
       }
     } catch (error) {
       const showError = (message) => {
@@ -61,7 +88,7 @@ const MilkRecordsScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadMilkRecords();
+    await loadMilkRecords(false, true); // Show update message on manual refresh
     setRefreshing(false);
   };
 
@@ -75,6 +102,10 @@ const MilkRecordsScreen = ({ navigation }) => {
       record.amount?.toString().includes(query)
     );
   });
+
+  const handleEditRecord = (record) => {
+    navigation.navigate('EditMilk', { recordId: record.id, record: record });
+  };
 
   const renderMilkRecord = ({ item }) => (
     <Card style={styles.recordCard}>
@@ -108,6 +139,17 @@ const MilkRecordsScreen = ({ navigation }) => {
         {item.notes && (
           <Paragraph style={styles.notes}>{item.notes}</Paragraph>
         )}
+
+        <View style={styles.actionButtons}>
+          <Button 
+            mode="outlined" 
+            onPress={() => handleEditRecord(item)}
+            style={styles.editButton}
+            compact
+          >
+            Edit
+          </Button>
+        </View>
       </Card.Content>
     </Card>
   );
@@ -244,6 +286,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: 8,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 12,
+  },
+  editButton: {
+    borderRadius: 8,
+    borderColor: '#4FC3F7',
   },
   detailChip: {
     marginRight: 8,

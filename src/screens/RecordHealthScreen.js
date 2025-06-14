@@ -216,8 +216,18 @@ const RecordHealthScreen = ({ navigation, route = {} }) => {
               }
             },
             {
+              text: 'View Records',
+              onPress: () => navigation.navigate('MainTabs', {
+                screen: 'HealthRecords',
+                params: { refresh: true }
+              }),
+            },
+            {
               text: 'Go Home',
-              onPress: () => navigation.navigate('Home'),
+              onPress: () => navigation.navigate('MainTabs', {
+                screen: 'Home',
+                params: { refresh: true }
+              }),
             }
           ]
         );

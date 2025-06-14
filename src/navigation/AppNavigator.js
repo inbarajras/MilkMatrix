@@ -11,6 +11,8 @@ import RecordHealthScreen from '../screens/RecordHealthScreen';
 import MilkRecordsScreen from '../screens/MilkRecordsScreen';
 import HealthRecordsScreen from '../screens/HealthRecordsScreen';
 import QRScanScreen from '../screens/QRScanScreen';
+import EditMilkScreen from '../screens/EditMilkScreen';
+import EditHealthScreen from '../screens/EditHealthScreen';
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -114,6 +116,20 @@ const AppNavigator = () => {
           headerTitle: () => <HeaderLogo showTitle={false} />,
           title: 'QR Scanner',
           presentation: 'modal',
+        }}
+      />
+      <Stack.Screen 
+        name="EditMilk" 
+        component={EditMilkScreen}
+        options={{ 
+          title: 'Edit Milk Record',
+        }}
+      />
+      <Stack.Screen 
+        name="EditHealth" 
+        component={EditHealthScreen}
+        options={{ 
+          title: 'Edit Health Record',
         }}
       />
     </Stack.Navigator>

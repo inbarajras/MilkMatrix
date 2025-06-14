@@ -13,13 +13,15 @@ import {
   FAB,
   Searchbar,
   ActivityIndicator,
-  Snackbar,
+  Button,
+  Snackbar
 } from 'react-native-paper';
+import { useFocusEffect } from '@react-navigation/native';
 import { healthService } from '../services/healthService';
 import { handleApiError } from '../utils/errorHandler';
 import BackgroundImage from '../components/BackgroundImage';
 
-const HealthRecordsScreen = ({ navigation }) => {
+const HealthRecordsScreen = ({ navigation, route }) => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -27,13 +29,33 @@ const HealthRecordsScreen = ({ navigation }) => {
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
+  // Load health records when screen first mounts
   useEffect(() => {
     loadHealthRecords();
   }, []);
+  
+  // Reload data whenever the screen comes into focus (returning from edit screen)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Check if we should show a refresh message from route params
+      const showUpdateMessage = route.params?.refresh === true;
+      
+      // Clear the route params to avoid showing messages multiple times
+      if (showUpdateMessage) {
+        navigation.setParams({ refresh: undefined });
+      }
+      
+      // Don't show full-screen loading when returning from edit screen
+      loadHealthRecords(false, showUpdateMessage);
+      return () => {}; // cleanup function
+    }, [route.params?.refresh])
+  );
 
-  const loadHealthRecords = async () => {
+  const loadHealthRecords = async (showFullScreenLoading = true, showUpdateMessage = false) => {
     try {
-      setLoading(true);
+      if (showFullScreenLoading) {
+        setLoading(true);
+      }
       
       const showError = (message) => {
         setSnackbarMessage(message);
@@ -46,6 +68,11 @@ const HealthRecordsScreen = ({ navigation }) => {
         handleApiError(error, showError);
       } else {
         setRecords(data || []);
+        // Only show "Records updated" when explicitly requested (like after an edit)
+        if (showUpdateMessage && data && data.length > 0) {
+          setSnackbarMessage('Records updated');
+          setSnackbarVisible(true);
+        }
       }
     } catch (error) {
       const showError = (message) => {
@@ -60,7 +87,7 @@ const HealthRecordsScreen = ({ navigation }) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadHealthRecords();
+    await loadHealthRecords(false, true); // Show update message on manual refresh
     setRefreshing(false);
   };
 
@@ -106,6 +133,10 @@ const HealthRecordsScreen = ({ navigation }) => {
     }
   };
 
+  const handleEditRecord = (record) => {
+    navigation.navigate('EditHealth', { recordId: record.id, record: record });
+  };
+
   const renderHealthRecord = ({ item }) => (
     <Card style={styles.recordCard}>
       <Card.Content>
@@ -137,10 +168,11 @@ const HealthRecordsScreen = ({ navigation }) => {
         
         <Paragraph style={styles.description}>{item.description}</Paragraph>
         
-        {item.treatment && (
+        {/* Check for medications array from the database structure */}
+        {item.medications && item.medications.length > 0 && item.medications[0].name && (
           <View style={styles.treatmentSection}>
             <Paragraph style={styles.treatmentLabel}>Treatment:</Paragraph>
-            <Paragraph style={styles.treatment}>{item.treatment}</Paragraph>
+            <Paragraph style={styles.treatment}>{item.medications[0].name}</Paragraph>
           </View>
         )}
         
@@ -151,6 +183,17 @@ const HealthRecordsScreen = ({ navigation }) => {
         <Paragraph style={styles.recordTime}>
           Recorded: {new Date(item.created_at).toLocaleString()}
         </Paragraph>
+
+        <View style={styles.actionButtons}>
+          <Button 
+            mode="outlined" 
+            onPress={() => handleEditRecord(item)}
+            style={styles.editButton}
+            compact
+          >
+            Edit
+          </Button>
+        </View>
       </Card.Content>
     </Card>
   );
@@ -262,6 +305,15 @@ const styles = StyleSheet.create({
   cowName: {
     fontSize: 14,
     color: '#666',
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 12,
+  },
+  editButton: {
+    borderRadius: 8,
+    borderColor: '#4FC3F7',
   },
   statusInfo: {
     alignItems: 'flex-end',

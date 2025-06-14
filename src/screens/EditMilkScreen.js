@@ -6,44 +6,28 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  TouchableOpacity,
 } from 'react-native';
-// Removed DateTimePicker import since date is readonly
 import {
   TextInput,
   Button,
   Card,
   Title,
   Paragraph,
-  Chip,
-  ActivityIndicator,
   Snackbar,
   HelperText,
-  Divider,
 } from 'react-native-paper';
-import { cowService } from '../services/cowService';
 import { milkService } from '../services/milkService';
 import { handleApiError } from '../utils/errorHandler';
-import { extractCowIdFromQR } from '../utils/qrCodeUtils';
-import QRScanner from '../components/QRScanner';
 import BackgroundImage from '../components/BackgroundImage';
-import CowDropdown from '../components/CowDropdown';
 import ShiftDropdown from '../components/ShiftDropdown';
 import QualityDropdown from '../components/QualityDropdown';
 
-const RecordMilkScreen = ({ navigation, route }) => {
-  const [showScanner, setShowScanner] = useState(false);
-  const [selectedCow, setSelectedCow] = useState(null);
-  const [loading, setLoading] = useState(false);
+const EditMilkScreen = ({ navigation, route }) => {
+  const [record, setRecord] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
-
-  // Cow selection states
-  const [cows, setCows] = useState([]);
-  const [cowsLoading, setCowsLoading] = useState(false);
-
-  // Removed menu states for dropdowns since we're using custom dropdowns now
 
   // Form fields
   const [quantity, setQuantity] = useState('');
@@ -60,52 +44,55 @@ const RecordMilkScreen = ({ navigation, route }) => {
   // Form validation
   const [errors, setErrors] = useState({});
 
-  // Check if cow was passed from QR scan or navigation
   useEffect(() => {
-    if (route.params?.cow) {
-      setSelectedCow(route.params.cow);
+    if (!route.params?.recordId) {
+      navigation.goBack();
+      return;
     }
+
+    loadRecord(route.params.recordId);
   }, [route.params]);
 
-  // Load all cows for dropdown selection
-  useEffect(() => {
-    const loadCows = async () => {
-      setCowsLoading(true);
-      try {
-        const { data, error } = await cowService.getAllCows();
-        if (error) {
-          console.error('Error loading cows:', error);
-          setSnackbarMessage('Failed to load cows list');
-          setSnackbarVisible(true);
-        } else {
-          setCows(data || []);
-        }
-      } catch (error) {
-        console.error('Error loading cows:', error);
-        setSnackbarMessage('Failed to load cows list');
+  const loadRecord = async (recordId) => {
+    try {
+      setLoading(true);
+      
+      // In a real app, we would fetch the specific record
+      // For now, we'll assume we have the full record from the route params
+      const milkRecord = route.params.record;
+      
+      if (!milkRecord) {
+        setSnackbarMessage('Failed to load milk record');
         setSnackbarVisible(true);
-      } finally {
-        setCowsLoading(false);
+        navigation.goBack();
+        return;
       }
-    };
 
-    loadCows();
-  }, []);
+      setRecord(milkRecord);
+      
+      // Populate form fields
+      setQuantity(milkRecord.amount?.toString() || '');
+      setFatContent(milkRecord.fat?.toString() || '');
+      setProteinContent(milkRecord.protein?.toString() || '');
+      setLactoseContent(milkRecord.lactose?.toString() || '');
+      setSomaticCount(milkRecord.somatic_cell_count?.toString() || '');
+      setBacteriaCount(milkRecord.bacteria_count?.toString() || '');
+      setCollectionDate(milkRecord.date || new Date().toISOString().split('T')[0]);
+      setShift(milkRecord.shift || 'Morning');
+      setQuality(milkRecord.quality || 'Good');
+      setNotes(milkRecord.notes || '');
+    } catch (error) {
+      console.error('Error loading milk record:', error);
+      setSnackbarMessage('Failed to load milk record details');
+      setSnackbarVisible(true);
+      navigation.goBack();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!selectedCow) {
-      newErrors.cow = 'Please select a cow';
-    }
-    
-    if (!collectionDate) {
-      newErrors.collectionDate = 'Collection date is required';
-    }
-    
-    if (!shift) {
-      newErrors.shift = 'Shift is required';
-    }
 
     if (!quantity.trim()) {
       newErrors.quantity = 'Quantity is required';
@@ -137,39 +124,8 @@ const RecordMilkScreen = ({ navigation, route }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleQRScan = async (scannedData) => {
-    setShowScanner(false);
-    setLoading(true);
-
-    try {
-      // Extract cow ID from QR code (handles both direct UUIDs and JSON objects)
-      const cowId = extractCowIdFromQR(scannedData);
-      console.log('Using cow ID for lookup:', cowId);
-      
-      const { data: cow, error } = await cowService.getCowById(cowId);
-      
-      if (error || !cow) {
-        Alert.alert(
-          'Cow Not Found',
-          `No cow found with ID: ${cowId}`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      setSelectedCow(cow);
-      setSnackbarMessage(`Cow selected: ${cow.tag_number} - ${cow.name}`);
-      setSnackbarVisible(true);
-    } catch (error) {
-      console.error('Error finding cow:', error);
-      Alert.alert('Error', 'Failed to find cow information');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveMilkRecord = async () => {
-    if (!validateForm()) {
+  const handleUpdateRecord = async () => {
+    if (!validateForm() || !record) {
       return;
     }
 
@@ -177,20 +133,19 @@ const RecordMilkScreen = ({ navigation, route }) => {
 
     try {
       const milkData = {
-        cow_id: selectedCow.id,
-        amount: parseFloat(quantity), // Using 'amount' instead of 'quantity' to match the database schema
-        fat: fatContent ? parseFloat(fatContent) : null, // Using 'fat' instead of 'fat_content'
-        protein: proteinContent ? parseFloat(proteinContent) : null, // Using 'protein' instead of 'protein_content'
+        amount: parseFloat(quantity),
+        fat: fatContent ? parseFloat(fatContent) : null,
+        protein: proteinContent ? parseFloat(proteinContent) : null,
         lactose: lactoseContent ? parseFloat(lactoseContent) : null,
         somatic_cell_count: somaticCount ? parseInt(somaticCount) : null,
         bacteria_count: bacteriaCount ? parseInt(bacteriaCount) : null,
         quality: quality || 'Good',
         shift: shift || 'Morning',
         notes: notes.trim() || null,
-        date: collectionDate || new Date().toISOString().split('T')[0], // Using the selected date or today
+        date: collectionDate || new Date().toISOString().split('T')[0],
       };
 
-      const { data, error } = await milkService.createMilkRecord(milkData);
+      const { data, error } = await milkService.updateMilkRecord(record.id, milkData);
 
       const showError = (message) => {
         setSnackbarMessage(message);
@@ -200,24 +155,9 @@ const RecordMilkScreen = ({ navigation, route }) => {
       if (error) {
         handleApiError(error, showError);
       } else {
-        setSnackbarMessage('Milk record saved successfully!');
+        setSnackbarMessage('Milk record updated successfully!');
         setSnackbarVisible(true);
         
-        // Reset form
-        setQuantity('');
-        setFatContent('');
-        setProteinContent('');
-        setLactoseContent('');
-        setSomaticCount('');
-        setBacteriaCount('');
-        setCollectionDate(new Date().toISOString().split('T')[0]);
-        setShift('Morning');
-        setQuality('Good');
-        setNotes('');
-        setSelectedCow(null);
-        setErrors({});
-        
-        // Navigate back to MilkRecords with refresh flag
         setTimeout(() => {
           navigation.navigate('MainTabs', {
             screen: 'MilkRecords',
@@ -236,22 +176,55 @@ const RecordMilkScreen = ({ navigation, route }) => {
     }
   };
 
-  const clearSelection = () => {
-    setSelectedCow(null);
-    setErrors({ ...errors, cow: undefined });
-  };
+  const handleDeleteRecord = async () => {
+    if (!record) return;
 
-  // Removed handleDateChange since date is readonly
-
-  if (showScanner) {
-    return (
-      <QRScanner
-        onScan={handleQRScan}
-        onClose={() => setShowScanner(false)}
-        title="Scan Cow Tag"
-      />
+    Alert.alert(
+      'Confirm Deletion',
+      'Are you sure you want to delete this milk record? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setSaving(true);
+              const { data, error } = await milkService.deleteMilkRecord(record.id);
+              
+              const showError = (message) => {
+                setSnackbarMessage(message);
+                setSnackbarVisible(true);
+              };
+              
+              if (error) {
+                handleApiError(error, showError);
+              } else {
+                setSnackbarMessage('Record deleted successfully!');
+                setSnackbarVisible(true);
+                
+                // Wait a moment to show success message before navigating back
+                setTimeout(() => {
+                  navigation.navigate('MainTabs', {
+                    screen: 'MilkRecords',
+                    params: { refresh: true }
+                  });
+                }, 1500);
+              }
+            } catch (error) {
+              const showError = (message) => {
+                setSnackbarMessage(message);
+                setSnackbarVisible(true);
+              };
+              handleApiError(error, showError);
+            } finally {
+              setSaving(false);
+            }
+          }
+        }
+      ]
     );
-  }
+  };
 
   return (
     <BackgroundImage>
@@ -262,60 +235,13 @@ const RecordMilkScreen = ({ navigation, route }) => {
         <ScrollView style={styles.scrollView} keyboardShouldPersistTaps="handled">
           <Card style={styles.card}>
             <Card.Content>
-              <Title>Record Milk Production</Title>
+              <Title>Edit Milk Record</Title>
               
-              {/* Cow Selection */}
+              {/* Cow Information */}
               <View style={styles.section}>
-                <Paragraph style={styles.sectionTitle}>Select Cow</Paragraph>
-                
-                {selectedCow ? (
-                  <View style={styles.selectedCowContainer}>
-                    <Chip
-                      icon="cow"
-                      onClose={clearSelection}
-                      style={styles.cowChip}
-                    >
-                      {selectedCow.tag_number} - {selectedCow.name}
-                    </Chip>
-                    {selectedCow.breed && (
-                      <Paragraph style={styles.cowDetails}>
-                        Breed: {selectedCow.breed}
-                      </Paragraph>
-                    )}
-                  </View>
-                ) : (
-                  <View style={styles.selectionContainer}>
-                    <View style={styles.selectionButtons}>
-                      <Button
-                        mode="contained"
-                        onPress={() => setShowScanner(true)}
-                        icon="qrcode-scan"
-                        style={[styles.selectionButton, { marginRight: 8 }]}
-                        disabled={loading}
-                      >
-                        Scan QR
-                      </Button>
-                      
-                      <CowDropdown
-                        cows={cows}
-                        selectedCow={selectedCow}
-                        onSelect={(cow) => {
-                          setSelectedCow(cow);
-                          setErrors({ ...errors, cow: undefined });
-                        }}
-                        loading={cowsLoading}
-                        disabled={loading}
-                        style={[styles.selectionButton, { marginLeft: 8 }]}
-                      />
-                    </View>
-                    
-                    {errors.cow && (
-                      <HelperText type="error" visible={true} style={styles.errorText}>
-                        {errors.cow}
-                      </HelperText>
-                    )}
-                  </View>
-                )}
+                <Paragraph style={styles.sectionTitle}>Cow Information</Paragraph>
+                <Paragraph>Tag: {record?.cows?.tag_number}</Paragraph>
+                <Paragraph>Name: {record?.cows?.name}</Paragraph>
               </View>
 
               {/* Collection Information */}
@@ -323,16 +249,13 @@ const RecordMilkScreen = ({ navigation, route }) => {
                 <Paragraph style={styles.sectionTitle}>Collection Information</Paragraph>
                 
                 <TextInput
-                  label="Collection Date *"
+                  label="Collection Date"
                   value={collectionDate}
                   mode="outlined"
                   style={styles.input}
                   editable={false}
                   right={<TextInput.Icon icon="calendar" />}
                 />
-                <HelperText type="info" visible={true}>
-                  Today's date is automatically set
-                </HelperText>
                 
                 <ShiftDropdown
                   selectedShift={shift}
@@ -341,14 +264,8 @@ const RecordMilkScreen = ({ navigation, route }) => {
                     setErrors({ ...errors, shift: undefined });
                   }}
                   style={styles.input}
-                  error={!!errors.shift}
                   disabled={saving}
                 />
-                {errors.shift && (
-                  <HelperText type="error" visible={true}>
-                    {errors.shift}
-                  </HelperText>
-                )}
               </View>
 
               {/* Milk Production Form */}
@@ -477,20 +394,30 @@ const RecordMilkScreen = ({ navigation, route }) => {
                 />
               </View>
 
-              <Button
-                mode="contained"
-                onPress={handleSaveMilkRecord}
-                style={styles.saveButton}
-                disabled={saving || loading}
-                loading={saving}
-              >
-                {saving ? 'Saving...' : 'Save Milk Record'}
-              </Button>
+              <View style={styles.buttonContainer}>
+                <Button
+                  mode="contained"
+                  onPress={handleUpdateRecord}
+                  style={styles.updateButton}
+                  disabled={saving}
+                  loading={saving}
+                >
+                  {saving ? 'Updating...' : 'Update Record'}
+                </Button>
+                
+                <Button
+                  mode="outlined"
+                  onPress={handleDeleteRecord}
+                  style={styles.deleteButton}
+                  color="#F44336"
+                  disabled={saving}
+                >
+                  Delete Record
+                </Button>
+              </View>
             </Card.Content>
           </Card>
         </ScrollView>
-
-        {/* Remove the DateTimePicker component since date is readonly */}
 
         <Snackbar
           visible={snackbarVisible}
@@ -528,50 +455,24 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     color: '#4FC3F7',
   },
-  selectedCowContainer: {
-    marginVertical: 8,
-  },
-  cowChip: {
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    borderRadius: 12,
-  },
-  cowDetails: {
-    color: '#666',
-    fontSize: 14,
-  },
-  selectionContainer: {
-    marginVertical: 8,
-    zIndex: 1000,
-  },
-  selectionButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  selectionButton: {
-    flex: 1,
-    borderRadius: 12,
-  },
-  errorText: {
-    marginTop: 4,
-  },
-  scanContainer: {
-    alignItems: 'center',
-    marginVertical: 16,
-  },
-  scanButton: {
-    marginBottom: 8,
-    borderRadius: 12,
-  },
   input: {
     marginBottom: 8,
   },
-  saveButton: {
+  buttonContainer: {
     marginTop: 24,
+  },
+  updateButton: {
+    marginTop: 8,
     paddingVertical: 8,
     borderRadius: 16,
+    backgroundColor: '#4CAF50',
+  },
+  deleteButton: {
+    marginTop: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderColor: '#F44336',
   },
 });
 
-export default RecordMilkScreen;
+export default EditMilkScreen;

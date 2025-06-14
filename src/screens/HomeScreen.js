@@ -7,6 +7,7 @@ import {
   Alert,
   Image,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   Card,
   Title,
@@ -24,7 +25,7 @@ import { userService } from '../services/userService';
 import { handleApiError } from '../utils/errorHandler';
 import BackgroundImage from '../components/BackgroundImage';
 
-const HomeScreen = ({ navigation }) => {
+const HomeScreen = ({ navigation, route }) => {
   const { user, signOut } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -37,6 +38,23 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     loadDashboardData();
   }, []);
+  
+  // Reload dashboard data whenever the screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Check if we should show a refresh message from route params
+      const showUpdateMessage = route.params?.refresh === true;
+      
+      // Clear the route params to avoid showing messages multiple times
+      if (showUpdateMessage) {
+        navigation.setParams({ refresh: undefined });
+      }
+      
+      // Don't show full-screen loading when returning from other screens
+      loadDashboardData(false, showUpdateMessage);
+      return () => {}; // cleanup function
+    }, [route.params?.refresh])
+  );
 
   // Load user display name when user changes
   useEffect(() => {
@@ -61,9 +79,11 @@ const HomeScreen = ({ navigation }) => {
     loadUserDisplayName();
   }, [user]);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (showFullScreenLoading = true, showUpdateMessage = false) => {
     try {
-      setLoading(true);
+      if (showFullScreenLoading) {
+        setLoading(true);
+      }
       
       const showError = (message) => {
         setSnackbarMessage(message);
@@ -84,6 +104,12 @@ const HomeScreen = ({ navigation }) => {
         handleApiError(healthError, showError);
       } else {
         setHealthAlerts(healthData || []);
+      }
+      
+      // Show update message if requested and data was loaded successfully
+      if (showUpdateMessage && !milkError && !healthError) {
+        setSnackbarMessage('Dashboard updated with latest data');
+        setSnackbarVisible(true);
       }
     } catch (error) {
       const showError = (message) => {
