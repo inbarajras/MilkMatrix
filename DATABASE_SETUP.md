@@ -377,6 +377,10 @@ CREATE INDEX idx_cows_status ON cows(status);
 CREATE INDEX idx_inventory_items_department ON inventory_items(department);
 CREATE INDEX idx_revenue_data_year_month ON revenue_data(year, month);
 
+-- Add unique constraint to prevent duplicate milk records for same cow, date, and shift
+ALTER TABLE milk_production
+  ADD CONSTRAINT unique_cow_date_shift UNIQUE (cow_id, date, shift);
+
 -- Insert sample data for testing
 INSERT INTO cows (tag_number, name, breed, date_of_birth, status, health_status, owner) VALUES
   ('001', 'Bessie', 'Holstein', '2020-03-15', 'Active', 'Healthy', 'Farm Owner'),

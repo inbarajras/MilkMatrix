@@ -714,6 +714,11 @@ ALTER TABLE milk_production
   ADD COLUMN IF NOT EXISTS bacteria_count INTEGER,
   ADD COLUMN IF NOT EXISTS quality_grade VARCHAR;
 
+-- Add unique constraint to prevent duplicate milk records for same cow, date, and shift
+-- This constraint ensures no duplicate records can be created at the database level
+ALTER TABLE milk_production
+  ADD CONSTRAINT unique_cow_date_shift UNIQUE (cow_id, date, shift);
+
 
 
 -- Create suppliers table
