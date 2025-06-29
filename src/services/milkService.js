@@ -1,9 +1,50 @@
 import { supabase } from './supabase';
 
 export const milkService = {
+  // Check for existing milk record with same cow, date, and shift
+  async checkDuplicateRecord(cowId, date, shift) {
+    try {
+      const { data, error } = await supabase
+        .from('milk_production')
+        .select('id, amount, shift')
+        .eq('cow_id', cowId)
+        .eq('date', date)
+        .eq('shift', shift)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error checking for duplicate record:', error);
+      return { data: null, error };
+    }
+  },
+
   // Create a new milk record
   async createMilkRecord(milkData) {
     try {
+      // Check for duplicate record first
+      const { data: existingRecord, error: duplicateError } = await this.checkDuplicateRecord(
+        milkData.cow_id,
+        milkData.date,
+        milkData.shift
+      );
+      
+      if (duplicateError) {
+        return { data: null, error: duplicateError };
+      }
+      
+      if (existingRecord) {
+        return { 
+          data: null, 
+          error: { 
+            message: `A milk record already exists for this cow on ${milkData.date} during ${milkData.shift} shift. Please edit the existing record instead.`,
+            code: 'DUPLICATE_RECORD',
+            existingRecord
+          } 
+        };
+      }
+
       const { data, error } = await supabase
         .from('milk_production')
         .insert([milkData])
@@ -155,6 +196,32 @@ export const milkService = {
   // Enhanced milk record creation with quality assessment
   async createMilkRecordWithQuality(milkData) {
     try {
+      // Prepare record data first
+      const date = milkData.date || new Date().toISOString().split('T')[0];
+      const shift = milkData.shift || 'Morning';
+      
+      // Check for duplicate record first
+      const { data: existingRecord, error: duplicateError } = await this.checkDuplicateRecord(
+        milkData.cow_id,
+        date,
+        shift
+      );
+      
+      if (duplicateError) {
+        return { data: null, error: duplicateError };
+      }
+      
+      if (existingRecord) {
+        return { 
+          data: null, 
+          error: { 
+            message: `A milk record already exists for this cow on ${date} during ${shift} shift. Please edit the existing record instead.`,
+            code: 'DUPLICATE_RECORD',
+            existingRecord
+          } 
+        };
+      }
+
       // Calculate quality grade if quality parameters are provided
       let qualityGrade = 'Good'; // default
       if (milkData.fat || milkData.protein || milkData.somatic || milkData.bacteria) {
@@ -168,9 +235,9 @@ export const milkService = {
 
       const recordData = {
         cow_id: milkData.cow_id,
-        date: milkData.date || new Date().toISOString().split('T')[0],
+        date: date,
         amount: parseFloat(milkData.amount),
-        shift: milkData.shift || 'Morning',
+        shift: shift,
         quality: milkData.quality || 'Good',
         notes: milkData.notes || null,
         fat: milkData.fat ? parseFloat(milkData.fat) : null,
