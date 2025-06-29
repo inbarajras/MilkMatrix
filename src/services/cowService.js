@@ -60,6 +60,23 @@ export const cowService = {
     }
   },
 
+  // Get all milking cows (excluding calves)
+  async getAllMilkingCows() {
+    try {
+      const { data, error } = await supabase
+        .from('cows')
+        .select('*')
+        .eq('is_calf', false)
+        .order('tag_number');
+      
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Error fetching milking cows:', error);
+      return { data: null, error };
+    }
+  },
+
   // Get cow by ID (primary key, used for QR scanning)
   async getCowById(id) {
     try {
