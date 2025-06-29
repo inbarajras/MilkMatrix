@@ -51,6 +51,12 @@ export const logError = (source, error) => {
  * @param {Function} showError - Function to show error message (takes message string)
  */
 export const handleApiError = (error, showError) => {
+  // Handle duplicate record errors with special formatting
+  if (error && error.code === 'DUPLICATE_RECORD') {
+    showError(error.message);
+    return;
+  }
+  
   const message = formatErrorMessage(error);
   showError(message);
 };

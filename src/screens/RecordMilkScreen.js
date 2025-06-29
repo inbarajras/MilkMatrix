@@ -192,12 +192,11 @@ const RecordMilkScreen = ({ navigation, route }) => {
 
       const { data, error } = await milkService.createMilkRecord(milkData);
 
-      const showError = (message) => {
-        setSnackbarMessage(message);
-        setSnackbarVisible(true);
-      };
-
       if (error) {
+        const showError = (message) => {
+          setSnackbarMessage(message);
+          setSnackbarVisible(true);
+        };
         handleApiError(error, showError);
       } else {
         setSnackbarMessage('Milk record saved successfully!');
