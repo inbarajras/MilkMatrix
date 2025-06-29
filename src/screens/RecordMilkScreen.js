@@ -72,7 +72,7 @@ const RecordMilkScreen = ({ navigation, route }) => {
     const loadCows = async () => {
       setCowsLoading(true);
       try {
-        const { data, error } = await cowService.getAllCows();
+        const { data, error } = await cowService.getAllMilkingCows();
         if (error) {
           console.error('Error loading cows:', error);
           setSnackbarMessage('Failed to load cows list');
@@ -152,6 +152,16 @@ const RecordMilkScreen = ({ navigation, route }) => {
         Alert.alert(
           'Cow Not Found',
           `No cow found with ID: ${cowId}`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Check if the cow is a calf
+      if (cow.is_calf) {
+        Alert.alert(
+          'Cannot Record Milk',
+          'This is a calf. Milk production can only be recorded for mature cows.',
           [{ text: 'OK' }]
         );
         return;
